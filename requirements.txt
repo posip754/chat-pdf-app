@@ -8,4 +8,3 @@ pypdf
 unstructured
 openpyxl
 protobuf==3.20.3
-fix: lock chromadb + protobuf versions

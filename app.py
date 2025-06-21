@@ -25,33 +25,49 @@ def list_dropbox_files(path):
     res = dbx.files_list_folder(path)
     return [entry for entry in res.entries if isinstance(entry, dropbox.files.FileMetadata)]
 
-@st.cache_data(show_spinner=False, persist=True)
-def download_selected_files(selected_names):
+def extract_text_preview(docs, max_chars=1000):
+    all_text = " ".join([d.page_content for d in docs])
+    return all_text[:max_chars] + ("..." if len(all_text) > max_chars else "")
+
+def process_files(selected_names):
     files = list_dropbox_files(DROPBOX_FOLDER)
     documents = []
-    total = len(selected_names)
+    processed_files = []
+    skipped_files = []
+
     for i, file in enumerate(files):
         if file.name not in selected_names:
             continue
         _, res = dbx.files_download(file.path_display)
-        suffix = os.path.splitext(file.name)[1]
+        suffix = os.path.splitext(file.name)[1].lower()
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
             tmp_file.write(res.content)
             tmp_path = tmp_file.name
-        if suffix.lower() == ".pdf":
+
+        if suffix == ".pdf":
             loader = PyPDFLoader(tmp_path)
-        elif suffix.lower() in [".xlsx", ".xls"]:
+        elif suffix in [".xlsx", ".xls"]:
             loader = UnstructuredExcelLoader(tmp_path)
         else:
+            skipped_files.append((file.name, "Nieobsługiwany format pliku"))
             continue
-        docs = loader.load()
-        for d in docs:
-            d.metadata["source"] = file.name
-        documents.extend(docs)
-        st.progress((i + 1) / total)
-    return documents
 
-st.title("📁 Asystent GPT z Dropbox")
+        try:
+            docs = loader.load()
+            for d in docs:
+                d.metadata["source"] = file.name
+            documents.extend(docs)
+            preview = extract_text_preview(docs)
+            st.markdown(f"**✅ Przetworzono plik:** `{file.name}`")
+            with st.expander("🔍 Podgląd tekstu"):
+                st.text(preview)
+            processed_files.append(file.name)
+        except Exception as e:
+            skipped_files.append((file.name, f"Błąd przetwarzania: {str(e)}"))
+
+    return documents, processed_files, skipped_files
+
+st.title("📁 Asystent GPT z Dropbox – z podglądem i logiem")
 st.markdown("🔄 Kliknij **Manual Refresh**, aby pobrać najnowsze pliki z Dropboxa.")
 
 if "should_reload" not in st.session_state:
@@ -73,9 +89,9 @@ selected_files = st.multiselect("📄 Wybierz pliki do analizy:", file_names, de
 
 if st.button("📥 Załaduj dokumenty") or st.session_state.get("should_reload", False):
     with st.spinner("⏳ Pobieranie i przetwarzanie..."):
-        documents = download_selected_files(selected_files)
+        documents, processed_files, skipped_files = process_files(selected_files)
         if not documents:
-            st.warning("Nie udało się załadować dokumentów.")
+            st.warning("Nie udało się załadować żadnych dokumentów.")
             st.stop()
         splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=100)
         chunks = splitter.split_documents(documents)
@@ -85,7 +101,12 @@ if st.button("📥 Załaduj dokumenty") or st.session_state.get("should_reload",
         qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
         st.session_state.qa_chain = qa_chain
         st.session_state.should_reload = False
-        st.success("✅ Dokumenty gotowe! Możesz teraz zadawać pytania.")
+        st.success(f"✅ Załadowano {len(processed_files)} plików. Gotowe do pytań.")
+
+        if skipped_files:
+            st.warning("⚠️ Pominięto niektóre pliki:")
+            for name, reason in skipped_files:
+                st.markdown(f"- `{name}` – {reason}")
 
 if "qa_chain" in st.session_state:
     query = st.text_input("✍️ Twoje pytanie")

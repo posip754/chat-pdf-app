@@ -1,10 +1,12 @@
-# GPT + Dropbox Asystent (Stable Session)
+# GPT + Dropbox Asystent (Manual Refresh + Stabilność)
 
-Ta wersja aplikacji GPT-4 zachowuje przetworzone dokumenty i łańcuch zapytań (`qa_chain`) w `st.session_state`, dzięki czemu nie traci ich po wpisaniu pytania.
+Aplikacja GPT-4 z Dropboxem, gdzie pliki są odświeżane tylko po kliknięciu „Manual Refresh”.
 
-✅ Stabilne działanie formularza zapytania
-✅ Brak resetowania interfejsu przy wpisaniu pytania
+✅ Przycisk „📥 Załaduj dokumenty” nie znika po odświeżeniu
+✅ Stabilna obsługa sesji
+✅ Gotowa do użycia na Streamlit Cloud
 
-## Użycie:
-1. Wgraj aplikację do Streamlit Cloud
-2. Dodaj `OPENAI_API_KEY` i `DROPBOX_TOKEN` do `.streamlit/secrets.toml`
+## Jak uruchomić:
+1. Wgraj repozytorium na GitHub
+2. Dodaj OPENAI_API_KEY i DROPBOX_TOKEN do .streamlit/secrets.toml
+3. Uruchom aplikację na Streamlit Cloud

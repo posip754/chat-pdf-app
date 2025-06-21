@@ -54,11 +54,14 @@ def download_selected_files(selected_names):
 st.title("📁 Asystent GPT z Dropbox")
 st.markdown("🔄 Kliknij **Manual Refresh**, aby pobrać najnowsze pliki z Dropboxa.")
 
+if "should_reload" not in st.session_state:
+    st.session_state.should_reload = False
+
 if st.button("🔄 Manual Refresh"):
     st.cache_data.clear()
     st.session_state.pop("qa_chain", None)
-    st.success("✅ Pamięć podręczna wyczyszczona. Kliknij ponownie „Załaduj dokumenty” aby pobrać z Dropboxa.")
-    st.stop()
+    st.session_state.should_reload = True
+    st.success("✅ Odświeżono. Teraz kliknij „📥 Załaduj dokumenty”, by pobrać nowe pliki.")
 
 files = list_dropbox_files(DROPBOX_FOLDER)
 if not files:
@@ -68,7 +71,7 @@ if not files:
 file_names = [f.name for f in files]
 selected_files = st.multiselect("📄 Wybierz pliki do analizy:", file_names, default=file_names)
 
-if st.button("📥 Załaduj dokumenty"):
+if st.button("📥 Załaduj dokumenty") or st.session_state.get("should_reload", False):
     with st.spinner("⏳ Pobieranie i przetwarzanie..."):
         documents = download_selected_files(selected_files)
         if not documents:
@@ -81,6 +84,7 @@ if st.button("📥 Załaduj dokumenty"):
         llm = ChatOpenAI(model="gpt-4", temperature=0)
         qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
         st.session_state.qa_chain = qa_chain
+        st.session_state.should_reload = False
         st.success("✅ Dokumenty gotowe! Możesz teraz zadawać pytania.")
 
 if "qa_chain" in st.session_state:

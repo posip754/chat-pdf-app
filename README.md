@@ -1,13 +1,19 @@
-# Asystent AI – dokumenty tylko właściciela
+# GPT + Dropbox Asystent
 
-Aplikacja analizuje pliki PDF/Excel dodane przez właściciela repozytorium. Użytkownik nie może przesyłać własnych plików.
+Aplikacja GPT-4 analizuje pliki PDF i Excel z Dropboxa. Wystarczy wrzucić dokumenty do folderu `/chat-gpt-docs` w Twoim koncie Dropbox.
 
-## Jak działać:
-1. Wrzuć dokumenty do folderu `dokumenty/`
-2. Uruchom aplikację na Streamlit Cloud
-3. Zadawaj pytania do zgromadzonych plików
+## Konfiguracja
 
-Klucz API dodaj przez zakładkę "Secrets":
+1. Utwórz aplikację na https://www.dropbox.com/developers/apps
+2. Wygeneruj Access Token
+3. Wklej do `.streamlit/secrets.toml`:
 ```
-OPENAI_API_KEY = "sk-..."
+DROPBOX_TOKEN = "twój_token"
+OPENAI_API_KEY = "twój_api_key"
 ```
+
+## Uruchomienie na Streamlit Cloud
+
+1. Wrzuć repozytorium na GitHub
+2. Wybierz je w Streamlit Cloud jako źródło
+3. Gotowe!

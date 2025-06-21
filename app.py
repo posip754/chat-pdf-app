@@ -1,61 +1,79 @@
 import os
 import streamlit as st
+from io import BytesIO
 from datetime import datetime
 
+import dropbox
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelLoader
+from langchain.document_loaders import UnstructuredFileLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import RetrievalQA
+import tempfile
 
-# Konfiguracja wyglądu
-st.set_page_config(page_title="Dokumenty AI", page_icon="📄", layout="wide")
+# Konfiguracja
+st.set_page_config(page_title="Dropbox GPT Asystent", layout="wide")
 
-# API Key
-openai_api_key = st.secrets["OPENAI_API_KEY"]
-os.environ["OPENAI_API_KEY"] = openai_api_key
+# API Keys
+DROPBOX_TOKEN = st.secrets["DROPBOX_TOKEN"]
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
-# Tytuł i opis
-col1, col2 = st.columns([1, 6])
-with col1:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/1024px-Apple_logo_black.svg.png", width=40)
-with col2:
-    st.markdown("### **Asystent AI do dokumentów**")
-    st.markdown("_Szybka analiza plików PDF i Excel dzięki GPT-4_")
+# Nagłówek
+st.markdown("### 📁 Analiza dokumentów z Dropbox + GPT-4")
 
-# Folder z dokumentami
-doc_folder = "dokumenty"
-doc_files = [f for f in os.listdir(doc_folder) if f.endswith((".pdf", ".xlsx", ".xls"))]
+# Połączenie z Dropbox
+dbx = dropbox.Dropbox(DROPBOX_TOKEN)
 
-if not doc_files:
-    st.warning("📂 Brak dokumentów do analizy. Dodaj pliki PDF lub Excel do folderu 'dokumenty/'.")
-    st.stop()
+# Folder w Dropbox
+DROPBOX_FOLDER = "/chat-gpt-docs"
 
-# Ładowanie dokumentów
-with st.spinner("🔄 Ładowanie dokumentów..."):
-    documents = []
-    for file in doc_files:
-        path = os.path.join(doc_folder, file)
-        if file.endswith(".pdf"):
+# Pobieranie plików z Dropbox
+def list_dropbox_files(path):
+    res = dbx.files_list_folder(path)
+    return [entry for entry in res.entries if isinstance(entry, dropbox.files.FileMetadata)]
+
+def download_file(entry):
+    _, res = dbx.files_download(entry.path_display)
+    suffix = os.path.splitext(entry.name)[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+        tmp_file.write(res.content)
+        return tmp_file.name, entry.name
+
+# Przetwarzanie dokumentów
+documents = []
+with st.spinner("🔄 Ładowanie plików z Dropbox..."):
+    files = list_dropbox_files(DROPBOX_FOLDER)
+    for file in files:
+        path, original_name = download_file(file)
+        if original_name.lower().endswith(".pdf"):
             loader = PyPDFLoader(path)
-        else:
+        elif original_name.lower().endswith((".xlsx", ".xls")):
             loader = UnstructuredExcelLoader(path)
+        else:
+            continue
         docs = loader.load()
         for d in docs:
-            d.metadata["source"] = file
+            d.metadata["source"] = original_name
         documents.extend(docs)
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    chunks = splitter.split_documents(documents)
-    embeddings = OpenAIEmbeddings()
-    vectorstore = FAISS.from_documents(chunks, embeddings)
-    llm = ChatOpenAI(model="gpt-4", temperature=0)
-    qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
+if not documents:
+    st.warning("📂 Brak plików PDF/Excel w folderze Dropbox `/chat-gpt-docs`.")
+    st.stop()
 
-st.success("✅ Gotowe! Możesz teraz zadawać pytania.")
+# Przetwarzanie z GPT
+splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+chunks = splitter.split_documents(documents)
+embedding = OpenAIEmbeddings()
+vectorstore = FAISS.from_documents(chunks, embedding)
+llm = ChatOpenAI(model="gpt-4", temperature=0)
+qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
 
-query = st.text_input("✍️ Twoje pytanie", placeholder="Np. Jakie są koszty w plikach?")
+# Interfejs pytania
+st.success("✅ Dokumenty wczytane. Zadaj pytanie:")
+query = st.text_input("✍️ Twoje pytanie", placeholder="Np. Jakie są koszty w dokumentach z Dropboxa?")
 
 if query:
     with st.spinner("🧠 GPT analizuje..."):
@@ -75,6 +93,3 @@ if query:
                 file_name=filename,
                 mime="text/plain"
             )
-
-st.markdown("---")
-st.caption("© 2024 AI Dokumenty – Aplikacja demo stworzona w stylu Apple • powered by GPT-4")

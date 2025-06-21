@@ -2,8 +2,9 @@ streamlit
 openai
 langchain
 langchain-community
-chromadb
+chromadb==0.4.13
 tiktoken
 pypdf
 unstructured[excel]
 openpyxl
+protobuf==3.20.3

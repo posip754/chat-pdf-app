@@ -1,10 +1,10 @@
-# GPT + Dropbox Asystent (Manual Refresh FIX)
+# GPT + Dropbox Asystent (Stable Session)
 
-Aplikacja GPT-4 do analizy plików PDF/Excel z Dropboxa. Pliki pobierane są tylko po kliknięciu „Manual Refresh”.
+Ta wersja aplikacji GPT-4 zachowuje przetworzone dokumenty i łańcuch zapytań (`qa_chain`) w `st.session_state`, dzięki czemu nie traci ich po wpisaniu pytania.
 
-✅ Ta wersja nie używa `st.experimental_rerun`, więc działa bez błędu na Streamlit Cloud.
+✅ Stabilne działanie formularza zapytania
+✅ Brak resetowania interfejsu przy wpisaniu pytania
 
-## Jak używać:
-1. Utwórz aplikację w Dropbox Developers
-2. Zaznacz `files.content.read` i `files.metadata.read`
-3. Wygeneruj token i wklej go do `.streamlit/secrets.toml`
+## Użycie:
+1. Wgraj aplikację do Streamlit Cloud
+2. Dodaj `OPENAI_API_KEY` i `DROPBOX_TOKEN` do `.streamlit/secrets.toml`

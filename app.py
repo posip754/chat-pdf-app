@@ -56,6 +56,7 @@ st.markdown("🔄 Kliknij **Manual Refresh**, aby pobrać najnowsze pliki z Drop
 
 if st.button("🔄 Manual Refresh"):
     st.cache_data.clear()
+    st.session_state.pop("qa_chain", None)
     st.success("✅ Pamięć podręczna wyczyszczona. Kliknij ponownie „Załaduj dokumenty” aby pobrać z Dropboxa.")
     st.stop()
 
@@ -79,25 +80,26 @@ if st.button("📥 Załaduj dokumenty"):
         vectorstore = FAISS.from_documents(chunks, embedding)
         llm = ChatOpenAI(model="gpt-4", temperature=0)
         qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
+        st.session_state.qa_chain = qa_chain
+        st.success("✅ Dokumenty gotowe! Możesz teraz zadawać pytania.")
 
-        st.success("✅ Gotowe! Zadaj pytanie do dokumentów.")
-        query = st.text_input("✍️ Twoje pytanie")
+if "qa_chain" in st.session_state:
+    query = st.text_input("✍️ Twoje pytanie")
+    if query:
+        with st.spinner("🧠 GPT analizuje..."):
+            answer = st.session_state.qa_chain.run(query)
+            st.markdown("### ✅ Odpowiedź:")
+            st.write(answer)
 
-        if query:
-            with st.spinner("🧠 GPT analizuje..."):
-                answer = qa_chain.run(query)
-                st.markdown("### ✅ Odpowiedź:")
-                st.write(answer)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"odpowiedz_{timestamp}.txt"
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("Pytanie:\n" + query + "\n\nOdpowiedź:\n" + answer)
 
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"odpowiedz_{timestamp}.txt"
-                with open(filename, "w", encoding="utf-8") as f:
-                    f.write("Pytanie:\n" + query + "\n\nOdpowiedź:\n" + answer)
-
-                with open(filename, "rb") as file:
-                    st.download_button(
-                        label="💾 Pobierz odpowiedź jako TXT",
-                        data=file,
-                        file_name=filename,
-                        mime="text/plain"
-                    )
+            with open(filename, "rb") as file:
+                st.download_button(
+                    label="💾 Pobierz odpowiedź jako TXT",
+                    data=file,
+                    file_name=filename,
+                    mime="text/plain"
+                )

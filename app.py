@@ -54,13 +54,10 @@ def download_selected_files(selected_names):
 st.title("📁 Asystent GPT z Dropbox")
 st.markdown("🔄 Kliknij **Manual Refresh**, aby pobrać najnowsze pliki z Dropboxa.")
 
-if "should_refresh" not in st.session_state:
-    st.session_state.should_refresh = False
-
 if st.button("🔄 Manual Refresh"):
     st.cache_data.clear()
-    st.session_state.should_refresh = True
-    st.experimental_rerun()
+    st.success("✅ Pamięć podręczna wyczyszczona. Kliknij ponownie „Załaduj dokumenty” aby pobrać z Dropboxa.")
+    st.stop()
 
 files = list_dropbox_files(DROPBOX_FOLDER)
 if not files:

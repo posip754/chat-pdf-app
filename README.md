@@ -1,14 +1,13 @@
-# Chat z przesyłanymi plikami (PDF i Excel) – FAISS
+# Asystent AI – dokumenty tylko właściciela
 
-Aplikacja Streamlit z GPT-4 i LangChain, umożliwiająca analizowanie przesłanych plików PDF oraz Excel.
-Działa z wektorową bazą FAISS, zgodną z hostingiem Streamlit Cloud.
+Aplikacja analizuje pliki PDF/Excel dodane przez właściciela repozytorium. Użytkownik nie może przesyłać własnych plików.
 
-## Uruchomienie online
+## Jak działać:
+1. Wrzuć dokumenty do folderu `dokumenty/`
+2. Uruchom aplikację na Streamlit Cloud
+3. Zadawaj pytania do zgromadzonych plików
 
-1. Wgraj repozytorium na GitHub
-2. Zaloguj się do https://streamlit.io/cloud
-3. Kliknij "New app" i wybierz to repozytorium
-4. W zakładce "Secrets" dodaj:
+Klucz API dodaj przez zakładkę "Secrets":
 ```
 OPENAI_API_KEY = "sk-..."
 ```

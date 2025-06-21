@@ -1,6 +1,3 @@
-# Asystent GPT – analiza rynku telekomunikacyjnego w Polsce
+# Asystent GPT – analiza rynku telekomunikacyjnego w Polsce (50% szerokości)
 
-Aplikacja webowa GPT-4 do analizy dokumentów PDF/Excel z Dropboxa, z interfejsem w stylu iOS / Apple:
-- obszar roboczy 75% szerokości, biały na szarym tle
-- flaga 🇵🇱, ikona 📱 i 💻
-- historia pytań i odpowiedzi widoczna pod spodem
+Wersja aplikacji z obszarem roboczym zajmującym połowę ekranu.

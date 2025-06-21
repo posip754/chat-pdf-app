@@ -5,7 +5,6 @@ from datetime import datetime
 
 import dropbox
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredExcelLoader
-from langchain.document_loaders import UnstructuredFileLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
@@ -13,83 +12,95 @@ from langchain.chat_models import ChatOpenAI
 from langchain.chains import RetrievalQA
 import tempfile
 
-# Konfiguracja
 st.set_page_config(page_title="Dropbox GPT Asystent", layout="wide")
-
-# API Keys
 DROPBOX_TOKEN = st.secrets["DROPBOX_TOKEN"]
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
-# Nagłówek
-st.markdown("### 📁 Analiza dokumentów z Dropbox + GPT-4")
-
-# Połączenie z Dropbox
 dbx = dropbox.Dropbox(DROPBOX_TOKEN)
-
-# Folder w Dropbox
 DROPBOX_FOLDER = "/chat-gpt-docs"
 
-# Pobieranie plików z Dropbox
+@st.cache_data(show_spinner=False, persist=True)
 def list_dropbox_files(path):
     res = dbx.files_list_folder(path)
     return [entry for entry in res.entries if isinstance(entry, dropbox.files.FileMetadata)]
 
-def download_file(entry):
-    _, res = dbx.files_download(entry.path_display)
-    suffix = os.path.splitext(entry.name)[1]
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-        tmp_file.write(res.content)
-        return tmp_file.name, entry.name
-
-# Przetwarzanie dokumentów
-documents = []
-with st.spinner("🔄 Ładowanie plików z Dropbox..."):
+@st.cache_data(show_spinner=False, persist=True)
+def download_selected_files(selected_names):
     files = list_dropbox_files(DROPBOX_FOLDER)
-    for file in files:
-        path, original_name = download_file(file)
-        if original_name.lower().endswith(".pdf"):
-            loader = PyPDFLoader(path)
-        elif original_name.lower().endswith((".xlsx", ".xls")):
-            loader = UnstructuredExcelLoader(path)
+    documents = []
+    total = len(selected_names)
+    for i, file in enumerate(files):
+        if file.name not in selected_names:
+            continue
+        _, res = dbx.files_download(file.path_display)
+        suffix = os.path.splitext(file.name)[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+            tmp_file.write(res.content)
+            tmp_path = tmp_file.name
+        if suffix.lower() == ".pdf":
+            loader = PyPDFLoader(tmp_path)
+        elif suffix.lower() in [".xlsx", ".xls"]:
+            loader = UnstructuredExcelLoader(tmp_path)
         else:
             continue
         docs = loader.load()
         for d in docs:
-            d.metadata["source"] = original_name
+            d.metadata["source"] = file.name
         documents.extend(docs)
+        st.progress((i + 1) / total)
+    return documents
 
-if not documents:
-    st.warning("📂 Brak plików PDF/Excel w folderze Dropbox `/chat-gpt-docs`.")
+st.title("📁 Asystent GPT z Dropbox")
+st.markdown("🔄 Kliknij **Manual Refresh**, aby pobrać najnowsze pliki z Dropboxa.")
+
+if "should_refresh" not in st.session_state:
+    st.session_state.should_refresh = False
+
+if st.button("🔄 Manual Refresh"):
+    st.cache_data.clear()
+    st.session_state.should_refresh = True
+    st.experimental_rerun()
+
+files = list_dropbox_files(DROPBOX_FOLDER)
+if not files:
+    st.warning("Brak plików w folderze `/chat-gpt-docs` na Dropboxie.")
     st.stop()
 
-# Przetwarzanie z GPT
-splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-chunks = splitter.split_documents(documents)
-embedding = OpenAIEmbeddings()
-vectorstore = FAISS.from_documents(chunks, embedding)
-llm = ChatOpenAI(model="gpt-4", temperature=0)
-qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
+file_names = [f.name for f in files]
+selected_files = st.multiselect("📄 Wybierz pliki do analizy:", file_names, default=file_names)
 
-# Interfejs pytania
-st.success("✅ Dokumenty wczytane. Zadaj pytanie:")
-query = st.text_input("✍️ Twoje pytanie", placeholder="Np. Jakie są koszty w dokumentach z Dropboxa?")
+if st.button("📥 Załaduj dokumenty"):
+    with st.spinner("⏳ Pobieranie i przetwarzanie..."):
+        documents = download_selected_files(selected_files)
+        if not documents:
+            st.warning("Nie udało się załadować dokumentów.")
+            st.stop()
+        splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=100)
+        chunks = splitter.split_documents(documents)
+        embedding = OpenAIEmbeddings()
+        vectorstore = FAISS.from_documents(chunks, embedding)
+        llm = ChatOpenAI(model="gpt-4", temperature=0)
+        qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
 
-if query:
-    with st.spinner("🧠 GPT analizuje..."):
-        answer = qa_chain.run(query)
-        st.markdown("### ✅ Odpowiedź:")
-        st.write(answer)
+        st.success("✅ Gotowe! Zadaj pytanie do dokumentów.")
+        query = st.text_input("✍️ Twoje pytanie")
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"odpowiedz_{timestamp}.txt"
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write("Pytanie:\n" + query + "\n\nOdpowiedź:\n" + answer)
+        if query:
+            with st.spinner("🧠 GPT analizuje..."):
+                answer = qa_chain.run(query)
+                st.markdown("### ✅ Odpowiedź:")
+                st.write(answer)
 
-        with open(filename, "rb") as file:
-            st.download_button(
-                label="💾 Pobierz odpowiedź jako TXT",
-                data=file,
-                file_name=filename,
-                mime="text/plain"
-            )
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"odpowiedz_{timestamp}.txt"
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write("Pytanie:\n" + query + "\n\nOdpowiedź:\n" + answer)
+
+                with open(filename, "rb") as file:
+                    st.download_button(
+                        label="💾 Pobierz odpowiedź jako TXT",
+                        data=file,
+                        file_name=filename,
+                        mime="text/plain"
+                    )

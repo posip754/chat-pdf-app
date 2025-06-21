@@ -1,19 +1,9 @@
-# GPT + Dropbox Asystent
+# GPT + Dropbox Asystent z Manual Refresh
 
-Aplikacja GPT-4 analizuje pliki PDF i Excel z Dropboxa. Wystarczy wrzucić dokumenty do folderu `/chat-gpt-docs` w Twoim koncie Dropbox.
+Aplikacja GPT-4 do analizy plików z Dropboxa. Nowe pliki są pobierane tylko po kliknięciu „Manual Refresh”.
 
-## Konfiguracja
-
-1. Utwórz aplikację na https://www.dropbox.com/developers/apps
+## Jak używać:
+1. Utwórz aplikację w Dropbox Developers
 2. Wygeneruj Access Token
-3. Wklej do `.streamlit/secrets.toml`:
-```
-DROPBOX_TOKEN = "twój_token"
-OPENAI_API_KEY = "twój_api_key"
-```
-
-## Uruchomienie na Streamlit Cloud
-
-1. Wrzuć repozytorium na GitHub
-2. Wybierz je w Streamlit Cloud jako źródło
-3. Gotowe!
+3. Wklej token i OpenAI API key do .streamlit/secrets.toml
+4. Uruchom aplikację na Streamlit Cloud
